@@ -1,0 +1,73 @@
+name: Build and verify FFmpeg Windows dependency
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [ffmpeg/**, .github/workflows/ffmpeg.yml]
+permissions:
+  contents: write
+concurrency:
+  group: ffmpeg-source-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Check out the exact source revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git init .
+          git remote add origin "https://github.com/$BUILD_REPO.git"
+          git fetch --depth=1 origin "$BUILD_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Compile the pinned upstream source
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-mingw-w64-x86-64-posix make nasm xz-utils zip
+          bash ffmpeg/build-windows.sh "$RUNNER_TEMP/ffmpeg-out"
+      - name: Store binary and source as a draft
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="ffmpeg-8.0.3-eva-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git push origin "$BUILD_SHA:refs/tags/$tag"
+          gh release create "$tag" --repo "$BUILD_REPO" --verify-tag --draft --prerelease --title "FFmpeg 8.0.3 Windows x64" --notes 'Standalone LGPL 2.1+ FFmpeg with exact source and recipe. A dependency, not the EvaMeet installer.' "$RUNNER_TEMP/ffmpeg-out/ffmpeg-8.0.3-evameet-win64.zip" "$RUNNER_TEMP/ffmpeg-out/ffmpeg-8.0.3-evameet-source.tar.xz" "$RUNNER_TEMP/ffmpeg-out/SHA256SUMS.txt"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_REPO: ${{ github.repository }}
+      BUILD_SHA: ${{ github.sha }}
+      RELEASE_TAG: ${{ needs.build.outputs.tag }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out the exact validation script
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh auth setup-git
+          git init .
+          git remote add origin "https://github.com/$env:BUILD_REPO.git"
+          git fetch --depth=1 origin $env:BUILD_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Source fetch failed' }
+          git checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Checkout failed' }
+      - name: Verify Windows audio and publish the dependency
+        run: ./ffmpeg/verify-windows.ps1
