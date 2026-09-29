@@ -8,7 +8,8 @@ if ((Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expect
 & $binary -version
 if ($LASTEXITCODE -ne 0) { throw 'Binary does not run' }
 $license = & $binary -L 2>&1 | Out-String
-if ($license -notmatch 'GNU Lesser General Public License' -or $license -notmatch 'version 2.1') { throw 'Unexpected license' }
+Write-Host $license
+if ($LASTEXITCODE -ne 0 -or $license -notmatch 'GNU Lesser General Public\s+License' -or $license -notmatch 'version\s+2\.1') { throw 'Unexpected license' }
 & $binary -hide_banner -loglevel error -f lavfi -i 'sine=frequency=440:duration=2' -ar 48000 -ac 2 -f f32le -y synthetic.pcm
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic PCM generation failed' }
 & $binary -hide_banner -loglevel error -f f32le -ar 48000 -ac 2 -i synthetic.pcm -c:a aac -b:a 192k -profile:a aac_low -movflags +faststart -f mp4 -y first.mp4
