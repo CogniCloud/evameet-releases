@@ -12,9 +12,13 @@ Les versions proposées aux utilisateurs sont accessibles depuis
 
 ## FFmpeg
 
-Le programme FFmpeg est exécuté séparément pour préparer les fichiers audio.
-Notre compilation Windows utilise les composants natifs sous LGPL 2.1 ou ultérieure,
-sans bibliothèques externes optionnelles, GPL, non libres ou fonctions réseau.
+Le programme FFmpeg est exécuté séparément pour préparer les fichiers audio et
+filmer les séances. Notre compilation Windows reste sous LGPL 2.1 ou ultérieure,
+sans composant GPL, non libre ou version 3, ni fonctions réseau. Pour la vidéo,
+elle utilise les encodeurs déjà présents sur le poste : Media Foundation, livré
+avec Windows, et NVENC ou AMF, livrés avec les pilotes NVIDIA et AMD. FFmpeg les
+charge à l’exécution ; seuls leurs en-têtes, sous licence MIT, servent à la
+compilation, et leurs avis accompagnent le binaire.
 Les archives de chaque version contiennent les sources exactes, la recette de
 compilation, les paramètres générés et les licences. Aucune source FFmpeg n’est modifiée.
 
